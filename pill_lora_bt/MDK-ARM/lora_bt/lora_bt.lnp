@@ -1,0 +1,23 @@
+--cpu Cortex-M3
+"lora_bt\startup_stm32f103x6.o"
+"lora_bt\main.o"
+"lora_bt\stm32f1xx_it.o"
+"lora_bt\stm32f1xx_hal_msp.o"
+"lora_bt\stm32f1xx_hal_gpio_ex.o"
+"lora_bt\stm32f1xx_hal_tim.o"
+"lora_bt\stm32f1xx_hal_tim_ex.o"
+"lora_bt\stm32f1xx_hal.o"
+"lora_bt\stm32f1xx_hal_rcc.o"
+"lora_bt\stm32f1xx_hal_rcc_ex.o"
+"lora_bt\stm32f1xx_hal_gpio.o"
+"lora_bt\stm32f1xx_hal_dma.o"
+"lora_bt\stm32f1xx_hal_cortex.o"
+"lora_bt\stm32f1xx_hal_pwr.o"
+"lora_bt\stm32f1xx_hal_flash.o"
+"lora_bt\stm32f1xx_hal_flash_ex.o"
+"lora_bt\stm32f1xx_hal_exti.o"
+"lora_bt\system_stm32f1xx.o"
+--library_type=microlib --strict --scatter "lora_bt\lora_bt.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "lora_bt.map" -o lora_bt\lora_bt.axf
