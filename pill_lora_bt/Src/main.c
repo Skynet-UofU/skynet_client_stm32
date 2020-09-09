@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "string.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -41,30 +42,24 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
-
-//initialize methods
-void SystemClock_Config(void);
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 
 //UART methods
 void transmit_bt_char(char c);
 void transmit_bt(char* chars);
 void transmit_lora_char(char c);
 void transmit_lora(char* chars);
-void initializeUART2();
-void initializeUART1();
 
-//Global variables used to keep track of complete messages
-char* msg;
-int bytes_received = 0;
+/* USER CODE BEGIN PV */
 
+/* USER CODE END PV */
 
-
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -74,46 +69,62 @@ int bytes_received = 0;
 
 /* USER CODE END 0 */
 
+void debugPrintln(UART_HandleTypeDef *huart, char _out[]){
+ HAL_UART_Transmit(huart, (uint8_t *) _out, strlen(_out), 10);
+ char newline[2] = "\r\n";
+ HAL_UART_Transmit(huart, (uint8_t *) newline, 2, 10);
+}
+
 /**
   * @brief  The application entry point.
   * @retval int
   */
 int main(void)
 {
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+  
+
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-//  HAL_Init();
-	
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
   /* Configure the system clock */
   SystemClock_Config();
-	
-	GPIOC->CRH |=  (1<<20)| (1<<21); // set pc13 to output mode, max speed 50 MHz
-	//GPIOC->CRH |= (1<<22); // set output to open-drain
-	
-	GPIOC->ODR |= (1<<13);
 
-//	initializeUART2();
-//	initializeUART1();
-	
-//	//set the GPIO settings for the LEDS
-//	GPIOC->MODER |= 0x55000; //set PC8 and PC9 to general output, PC6 & 7 to be alternate function mode	
-	
-//	transmit_bt("Starting\r\n");
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-//	transmit_lora("This is a test to see just how many characters we can purely send using LoRa without having to deal with the bluetooth uart limitations. will it end up being the bt, or the lora that causes the bottleneck?");
-	while (1)
-  {				
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  /* USER CODE END 2 */
+ 
+// debugPrintln(&huart2, "Starting"); // print full line 
+ transmit_bt("Starting\r\n");
+ transmit_lora("STM32f1 has started\r\n");
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-			HAL_GPIO_TogglePin(GPIOC, 13);
-
-      HAL_Delay(1000);
+		HAL_GPIO_TogglePin(green_led_GPIO_Port, green_led_Pin);
+		HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
-
 
 //The LoRa module is using uart2, so when LoRa data comes in,
 //relay it to the bluetooth app
@@ -144,7 +155,7 @@ void USART1_IRQHandler(void)
 			transmit_bt("overrun occured");
 	}
 	characters[character_iter] = 0;
-	transmit_bt(characters);
+	transmit_lora(characters);
 }
 
 void transmit_lora_char(char c)
@@ -186,81 +197,6 @@ void transmit_bt(char* chars)
 	}
 }
 
-char convert_to_ascii(uint8_t val)
-{
-	char ret = 0;
-	ret = val >= 0xa ? (val - 0xa) + 'a' : val + '0';
-	return ret;
-}
-
-void convert_to_ascii_string(uint8_t val, char* ret)
-{
-	ret[0] = convert_to_ascii(val >> 4);
-	ret[1] = convert_to_ascii(val & 0xf);
-	ret[2] = 0;
-}
-
-void toggle_LED(uint8_t pin)
-{
-	GPIOC->ODR |= (1 << pin);
-	HAL_Delay(250);
-	GPIOC->ODR &= ~(1 << pin);
-	HAL_Delay(250);
-	GPIOC->ODR |= (1 << pin);
-	HAL_Delay(250);
-	GPIOC->ODR &= ~(1 << pin);
-}
-
-// The LoRa module is connected to uart2
-// uart2 on the blue pill uses PA2 and PA3
-void initializeUART2(void)
-{
-	RCC->APB1ENR |= RCC_APB1ENR_USART2EN; // enable system clock in RCC peripheral
-	__HAL_RCC_AFIO_CLK_ENABLE();
-	GPIOA->CRL &= ~(0xF00); // set PA2 and PA3 to alternate function mode
-	GPIOA->CRH |= 0xA00;
-	
-//	GPIOA->AFR[1] &= ~(0xFF000000); // make sure all other bits are zeroes
-//	GPIOA->AFR[1] |= (1 << 24) | (1 << 28); //set PA14 & PA15 to use AF1
-	
-	// set PA9 and PA10 to use AF1
-	// should be set to USART1 by default
-		
-	USART2->BRR = HAL_RCC_GetHCLKFreq()/115200; //set the baud rate to 9600
-	
-	USART2->CR1 |= (1 << 3) | (1 << 2) | (1 << 5); //enable the transmit and receive
-	
-	USART2->CR2 |= (1<<12);
-
-  NVIC_EnableIRQ(USART2_IRQn); //enable the USART2 interrupt
-  NVIC_SetPriority(USART2_IRQn,1); //set the USART2 priority
-	
-	USART2->CR1 |= 1; //enable the USART2 peripheral, this must be done after all other settings are configured	
-}
-
-// The Bluetooth module is connected to uart1
-void initializeUART1(void)
-{
-	RCC->APB1ENR |= RCC_APB2ENR_USART1EN; // enable system clock in RCC peripheral
-//	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	GPIOA->CRH &= ~(0xF); // set PA9 and PA10 to alternate function mode
-	GPIOA->CRH |= 0xA;
-		
-	
-	USART1->BRR = HAL_RCC_GetHCLKFreq()/115200; // set Baud rate to be 115200 bits/second
-	
-	USART1->CR1 |= ((1<<3) | (1<<2)); // enable tx/rx hardware
-	USART1->CR1 |= (1<<5); // enable rx reg not empty interrupt
-	USART1->CR1 |= 1;			 // enable USART3
-	
-	NVIC_EnableIRQ(USART1_IRQn);
-	NVIC_SetPriority(USART1_IRQn, 2);
-
-//  // set pins pc10 and pc11 into alternate function mode for UART3_TX/RX
-//	GPIOC->AFR[1] |= (1<<8); 
-//	GPIOC->AFR[1] |= (1<<12);
-}
 
 /**
   * @brief System Clock Configuration
@@ -294,6 +230,107 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+	
+	USART1->CR1 |= (1<<5);
+
+  /* USER CODE END USART1_Init 2 */
+	NVIC_EnableIRQ(USART1_IRQn);
+	NVIC_SetPriority(USART1_IRQn, 1);
+
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+	
+	USART2->CR1 |= (1<<5);
+
+  /* USER CODE END USART2_Init 2 */
+	
+	NVIC_EnableIRQ(USART2_IRQn);
+	NVIC_SetPriority(USART2_IRQn, 1);
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(green_led_GPIO_Port, green_led_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : green_led_Pin */
+  GPIO_InitStruct.Pin = green_led_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(green_led_GPIO_Port, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
